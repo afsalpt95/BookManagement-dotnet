@@ -2,7 +2,10 @@
 using BookManagement.Models;
 using BookManagement.Repositories;
 using BCryptNet = BCrypt.Net.BCrypt;
-using Org.BouncyCastle.Crypto.Generators;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
 
 namespace BookManagement.Services
 {
@@ -38,12 +41,50 @@ namespace BookManagement.Services
         }
 
 
-        //public async Task<(bool Success , string Message)> LoginUser (LoginDto dto)
-        //{
-        //    var existuser = await _repository.GetByEmail(dto.Email);
+        public async Task<(bool Success, Object? Data, string Message)> LoginUser(LoginDto dto)
+        {
+            var user = await _repository.GetByEmail(dto.Email);
 
-          
-        //}
+            if (user == null) return (false, null, "Invalid email");
+
+            if (!BCryptNet.Verify(dto.Password, user.Password))
+                return (false, null, "Invalid password");
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(new Claim[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Email, user.Email)
+        }),
+                Expires = DateTime.UtcNow.AddHours(2),
+                SigningCredentials = new SigningCredentials(
+            new SymmetricSecurityKey(key),
+            SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+            var tokenString = tokenHandler.WriteToken(token);
+
+            var responseData = new
+            {
+                User = new {
+                    Id = user.Id,
+                    Name = user.Name,
+                    Email = user.Email,
+                    Interest = user.Interests,
+                    CreatedAt = user.CreatedAt,
+                },
+
+                Token = tokenString
+
+            };
+
+            return (true, responseData, "Login successful");
+        }
 
 
     }

@@ -1,12 +1,13 @@
 ﻿using BookManagement.DTOs.UserDTOs;
 using BookManagement.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Runtime.InteropServices;
 
 namespace BookManagement.Controllers
 {
 
     [ApiController]
-    [Route("api")]
+    [Route("")]
     public class UserController : ControllerBase
     {
 
@@ -34,6 +35,29 @@ namespace BookManagement.Controllers
             return Ok(new { message = result.Message });
 
         }
+
+        [HttpPost("login")]
+        public async Task<IActionResult> Login(LoginDto loginDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var ( success , data , message) = await _service.LoginUser(loginDto);
+
+            if (!success)
+            {
+                return Unauthorized(new { message = message });
+            }
+
+            return Ok(new
+            {
+                message = message,
+                data = data
+            });
+        }
+
 
     }
 }
